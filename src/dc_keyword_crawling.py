@@ -1,5 +1,7 @@
 from typing import List
 
+import os
+import argparse
 import re
 import pandas as pd
 from gazpacho import Soup
@@ -7,6 +9,33 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from time import sleep
 from urllib.parse import quote
+
+
+def get_parameters()->argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-k", "--keyword", type=str)
+    parser.add_argument("-e_r", "--extract_range", default=10, type=int)
+    parser.add_argument("-bs_p", "--base_save_dir_path", type=str)
+    parser.add_argument("-u_a", "--user_agent", default=None, type=str)
+
+    args = parser.parse_args()
+
+    return args
+
+def make_save_dir(save_base_path:str):
+    if not os.path.exists(save_base_path):
+        os.makedirs(save_base_path)
+        print("make base save dir.")
+    else:
+        print("base save dir is already existing!")
+
+def make_dataframe_path(base_path:str, keyword:str, extract_range:int)-> str:
+    dataframe_name = f"{keyword}_extract_{extract_range}_page.tsv"
+    dataframe_full_path = os.path.join(base_path, dataframe_name)
+
+    return dataframe_full_path
+
+
 
 # 수집할 페이지의 범위를 지정
 def define_crawling_page_num(wd, user_range):
@@ -47,30 +76,13 @@ def click_next_page(wd, current_page_num):
     html = wd.page_source
     return html
     
-# url 크롤링 -> 본문 및 댓글 사용하지 않을 예정....
-# def crawling_url(wd, url):
-#     tag_delete_pattern = re.compile('(<([^>]+)>)')
-#     wd.get(url)
-#     html = wd.page_source
-#     soup = Soup(html)
-
-#     content_value = soup.find('div', {'class' : 'write_div'}, partial=False)
-#     print(f'content_value :  {content_value}')
-
-#     content_html = content_value.html
-#     content_text = str(re.sub(tag_delete_pattern, '', content_html)).strip()
-
-#     print(f'crawling_url content :  {content_text}')
-# url 크롤링 -> 본문 및 댓글 사용하지 않을 예정....
-
-# keyword가 추출한 title 내에 있는지 없는지 확인
 def checking_keyword_in_title(title, keyword):
     if str(keyword) in title:
         return True
     else:
         False
 
-def crawling_target_keyword_datas(keyword, extract_range, base_url='https://gall.dcinside.com/board/lists/?id=baseball_new11&s_type=search_subject_memo&s_keyword=')->List[str]:
+def crawling_target_keyword_datas(keyword, extract_range, user_agent, base_url='https://gall.dcinside.com/board/lists/?id=baseball_new11&s_type=search_subject_memo&s_keyword=')->List[str]:
     ## part 1 : url형태로 encode
     keyword_encode = quote(keyword)
     target_url = base_url+keyword_encode
@@ -79,7 +91,7 @@ def crawling_target_keyword_datas(keyword, extract_range, base_url='https://gall
     options.add_argument('headless')
     options.add_argument('disable-gpu')
     options.add_argument('disable-dev-shm-usage')
-    options.add_argument('') ## user-agent 기입
+    options.add_argument(user_agent)
 
     wd = webdriver.Chrome(options=options)
     wd.get(target_url)
@@ -118,15 +130,20 @@ def crawling_target_keyword_datas(keyword, extract_range, base_url='https://gall
 
     return keyword_title_list
 
-
 if __name__== '__main__':
-    keyword_title_list = crawling_target_keyword_datas(keyword='', extract_range=10)
-    dc_crawling_title_dataframe = pd.DataFrame({'text' : [], 'label' : []})
+    args = get_parameters()
+    if args.user_agent == None:
+        raise ValueError("user_agent must have value.")
+
+    make_save_dir(save_base_path=args.base_save_dir_path)
+
+    keyword_title_list = crawling_target_keyword_datas(keyword=args.keyword, user_agent=args.user_agent, extract_range=args.extract_range)
+    dc_crawling_title_dataframe = pd.DataFrame({'text' : []})
 
     dc_crawling_title_dataframe['text'] = keyword_title_list
-    dc_crawling_title_dataframe['label'] = [1] * len(keyword_title_list)
 
     print(dc_crawling_title_dataframe)
 
     ## 결과 저장
-    dc_crawling_title_dataframe.to_csv('', sep = '\t', index = False)
+    dataframe_path = make_dataframe_path(base_path=args.base_save_dir_path, keyword=args.keyword, extract_range=args.extract_range)
+    dc_crawling_title_dataframe.to_csv(dataframe_path, sep = '\t', index = False)
