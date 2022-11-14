@@ -19,6 +19,9 @@ Note) user_agent를 확인하는 방법은 하단에서 확인하실 수 있습�
 | extract_range | int | 글의 제목을 추출할 총 페이지 수 입니다. | 10 |
 | base_save_dir_path | str | dataframe이 저장될 디렉토리 경로입니다. | - |
 | user_agent | str | 본인의 user_agent입니다. | None |
+```
+Note) 크롤링 결과 dataframe은 base_path_dir_path에 "{keyword}_extract_{extract_range}_page.tsv" 명으로 저장됩니다.
+```
 
 ## How to get User-Agent?
 * [whatsmyua 사이트](https://www.whatsmyua.info/)
